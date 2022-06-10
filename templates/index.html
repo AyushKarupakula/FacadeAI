@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adaptive Façade Dashboard</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="mb-4">Adaptive Façade Dashboard</h1>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Current Status</h5>
+                        <p>Last Update: <span id="last-update"></span></p>
+                        <p>Panel Count: <span id="panel-count"></span></p>
+                        <p>Energy Use: <span id="energy-use"></span> kWh</p>
+                        <p>Temperature: <span id="temperature"></span> °C</p>
+                        <p>Humidity: <span id="humidity"></span> %</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Façade Behavior</h5>
+                        <div id="facade-plot"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Energy Performance</h5>
+                        <div id="energy-plot"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function updateStatus() {
+            $.getJSON('/api/current_status', function(data) {
+                $('#last-update').text(new Date(data.last_update * 1000).toLocaleString());
+                $('#panel-count').text(data.panel_count);
+                $('#energy-use').text(data.energy_use ? data.energy_use.toFixed(2) : 'N/A');
+                $('#temperature').text(data.temperature ? data.temperature.toFixed(1) : 'N/A');
+                $('#humidity').text(data.humidity ? data.humidity.toFixed(1) : 'N/A');
+            });
+        }
+
+        function updateFacadePlot() {
+            $.getJSON('/api/facade_data', function(data) {
+                var trace1 = {
+                    x: data.map(d => d.panel_id),
+                    y: data.map(d => d.rotation),
+                    mode: 'lines+markers',
+                    name: 'Rotation'
+                };
+                var trace2 = {
+                    x: data.map(d => d.panel_id),
+                    y: data.map(d => d.depth),
+                    mode: 'lines+markers',
+                    name: 'Depth'
+                };
+                var layout = {
+                    title: 'Façade Panel Configuration',
+                    xaxis: {title: 'Panel ID'},
+                    yaxis: {title: 'Value'}
+                };
+                Plotly.newPlot('facade-plot', [trace1, trace2], layout);
+            });
+        }
+
+        function updateEnergyPlot() {
+            $.getJSON('/api/energy_data', function(data) {
+                var trace = {
+                    x: data.map(d => new Date(d.time * 1000)),
+                    y: data.map(d => d.energy_use),
+                    mode: 'lines+markers',
+                    name: 'Energy Use'
+                };
+                var layout = {
+                    title: 'Energy Use Over Time',
+                    xaxis: {title: 'Time'},
+                    yaxis: {title: 'Energy Use (kWh)'}
+                };
+                Plotly.newPlot('energy-plot', [trace], layout);
+            });
+        }
+
+        // Update data every 5 seconds
+        setInterval(function() {
+            updateStatus();
+            updateFacadePlot();
+            updateEnergyPlot();
+        }, 5000);
+
+        // Initial update
+        updateStatus();
+        updateFacadePlot();
+        updateEnergyPlot();
+    </script>
+</body>
+</html>
