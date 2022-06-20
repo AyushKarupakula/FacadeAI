@@ -1,11 +1,13 @@
 import time
 import threading
 from data_acquisition.fetch_data import fetch_weather_data, load_config
-from ai_control_system.inference import get_facade_adjustments
+from ai_control_system.facade_env import FacadeEnv
+from ai_control_system.dqn_agent import DQNAgent
 from models.components.facade_controller import FacadeController
 from revit_integration.revit_integration import RevitIntegration
 from visualization.visualization import FacadeVisualizer
 import pandas as pd
+import numpy as np
 
 class MainController:
     def __init__(self):
@@ -15,73 +17,63 @@ class MainController:
         self.visualizer = FacadeVisualizer()
         self.facade_data = []
         self.energy_data = []
+        
+        # Initialize RL environment and agent
+        self.env = FacadeEnv()
+        self.agent = DQNAgent(state_size=self.env.observation_space.shape[0],
+                              action_size=self.env.action_space.shape[0])
+        self.agent.action_space = self.env.action_space  # Set the action space for the agent
 
     def run_simulation_cycle(self):
-        # Fetch weather data
-        weather_data = fetch_weather_data(self.config['openweathermap_api_key'], self.config['city'])
+        state = self.env.reset()
+        state = np.reshape(state, [1, self.env.observation_space.shape[0]])
         
-        # Get facade adjustments from AI
-        adjustments = get_facade_adjustments(weather_data)
+        for time_step in range(self.env.max_steps):
+            # Get action from DQN agent
+            action = self.agent.act(state)
+            
+            # Take action in environment
+            next_state, reward, done, _ = self.env.step(action)
+            next_state = np.reshape(next_state, [1, self.env.observation_space.shape[0]])
+            
+            # Remember the previous state, action, reward, and done
+            self.agent.remember(state, action, reward, next_state, done)
+            
+            # Make next_state the new current state for the next frame.
+            state = next_state
+            
+            # Store facade and energy data
+            self.store_facade_data(self.env.current_state, action)
+            self.store_energy_data(self.env.current_energy_use)
+            
+            if done:
+                break
         
-        # Update facade
-        base_surface = self.get_base_surface()  # This would come from your Rhino/Grasshopper setup
-        wind_speed = weather_data['wind']['speed']
-        updated_panels = self.facade_controller.update_facade_model(base_surface, wind_speed)
-        
-        # Store facade data
-        self.store_facade_data(updated_panels)
-        
-        # Run Revit energy simulation
-        facade_geometry = self.convert_panels_to_revit_geometry(updated_panels)
-        self.revit_integration.import_facade_model(facade_geometry)
-        energy_model = self.revit_integration.setup_energy_model()
-        simulation_results = self.revit_integration.run_energy_simulation(energy_model)
-        self.revit_integration.analyze_results(simulation_results)
-        
-        # Store energy data
-        self.store_energy_data(simulation_results)
-        
-        # Generate report
-        self.revit_integration.generate_report()
-        
-        # Update visualizations
-        self.update_visualizations()
-        
-        # Feedback to AI system
-        self.update_ai_model(simulation_results)
+        # Train the agent with experiences in memory
+        if len(self.agent.memory) > 32:
+            self.agent.replay(32)
 
-    def get_base_surface(self):
-        # Placeholder for getting the base surface from Rhino/Grasshopper
-        pass
-
-    def convert_panels_to_revit_geometry(self, panels):
-        # Placeholder for converting Rhino/Grasshopper geometry to Revit geometry
-        pass
-
-    def store_facade_data(self, panels):
-        for i, panel in enumerate(panels):
-            self.facade_data.append({
-                'time': time.time(),
-                'panel_id': i,
-                'rotation': panel['rotation'],
-                'depth': panel['depth']
-            })
-
-    def store_energy_data(self, simulation_results):
-        self.energy_data.append({
+    def store_facade_data(self, state, action):
+        self.facade_data.append({
             'time': time.time(),
-            'energy_use': simulation_results['annual_energy_use'],
-            'temperature': self.get_current_temperature(),
-            'humidity': self.get_current_humidity()
+            'temperature': state[0],
+            'humidity': state[1],
+            'wind_speed': state[2],
+            'wind_direction': state[3],
+            'cloudiness': state[4],
+            'weather_condition': state[5],
+            'panel_count': int(10 + action[0] * 10),
+            'rotation': action[1] * 90,
+            'depth': 0.1 + action[2] * 0.4
         })
 
-    def get_current_temperature(self):
-        # Placeholder for getting current temperature from weather data
-        pass
-
-    def get_current_humidity(self):
-        # Placeholder for getting current humidity from weather data
-        pass
+    def store_energy_data(self, energy_use):
+        self.energy_data.append({
+            'time': time.time(),
+            'energy_use': energy_use,
+            'temperature': self.facade_data[-1]['temperature'],
+            'humidity': self.facade_data[-1]['humidity']
+        })
 
     def update_visualizations(self):
         facade_df = pd.DataFrame(self.facade_data)
@@ -99,14 +91,10 @@ class MainController:
         self.visualizer.create_interactive_3d_plot()
         self.visualizer.create_animated_facade()
 
-    def update_ai_model(self, simulation_results):
-        # Placeholder for updating the AI model based on simulation results
-        # This would involve retraining or fine-tuning the model
-        pass
-
     def run(self):
         while True:
             self.run_simulation_cycle()
+            self.update_visualizations()
             time.sleep(3600)  # Run every hour
 
 def main():
@@ -122,6 +110,7 @@ def main():
     
     mock_doc = MockDocument()
     controller.revit_integration = RevitIntegration(mock_doc)
+    controller.env.revit_integration = controller.revit_integration
     
     # Run the main control loop in a separate thread
     control_thread = threading.Thread(target=controller.run)
