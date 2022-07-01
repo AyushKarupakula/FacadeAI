@@ -27,14 +27,25 @@
             <div class="col-md-6">
                 <div class="card">
                     <div class="card-body">
-                        <h5 class="card-title">Façade Behavior</h5>
-                        <div id="facade-plot"></div>
+                        <h5 class="card-title">RL Agent Performance</h5>
+                        <p>Epsilon: <span id="epsilon"></span></p>
+                        <p>Memory Size: <span id="memory-size"></span></p>
+                        <p>Last Reward: <span id="last-reward"></span></p>
+                        <p>Total Steps: <span id="total-steps"></span></p>
                     </div>
                 </div>
             </div>
         </div>
         <div class="row mt-4">
-            <div class="col-md-12">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Façade Behavior</h5>
+                        <div id="facade-plot"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
                 <div class="card">
                     <div class="card-body">
                         <h5 class="card-title">Energy Performance</h5>
@@ -53,6 +64,15 @@
                 $('#energy-use').text(data.energy_use ? data.energy_use.toFixed(2) : 'N/A');
                 $('#temperature').text(data.temperature ? data.temperature.toFixed(1) : 'N/A');
                 $('#humidity').text(data.humidity ? data.humidity.toFixed(1) : 'N/A');
+            });
+        }
+
+        function updateRLPerformance() {
+            $.getJSON('/api/rl_performance', function(data) {
+                $('#epsilon').text(data.epsilon.toFixed(4));
+                $('#memory-size').text(data.memory_size);
+                $('#last-reward').text(data.last_reward ? data.last_reward.toFixed(2) : 'N/A');
+                $('#total-steps').text(data.total_steps);
             });
         }
 
@@ -99,12 +119,14 @@
         // Update data every 5 seconds
         setInterval(function() {
             updateStatus();
+            updateRLPerformance();
             updateFacadePlot();
             updateEnergyPlot();
         }, 5000);
 
         // Initial update
         updateStatus();
+        updateRLPerformance();
         updateFacadePlot();
         updateEnergyPlot();
     </script>

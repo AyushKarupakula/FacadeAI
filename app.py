@@ -34,5 +34,14 @@ def get_current_status():
         'humidity': controller.energy_data[-1]['humidity'] if controller.energy_data else None,
     })
 
+@app.route('/api/rl_performance')
+def get_rl_performance():
+    return jsonify({
+        'epsilon': controller.agent.epsilon,
+        'memory_size': len(controller.agent.memory),
+        'last_reward': controller.env.current_energy_use,
+        'total_steps': controller.env.step_count
+    })
+
 if __name__ == '__main__':
     app.run(debug=True)
