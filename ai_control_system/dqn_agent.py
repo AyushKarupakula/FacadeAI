@@ -18,8 +18,9 @@ class DQNAgent:
 
     def _build_model(self):
         model = models.Sequential([
-            layers.Dense(24, activation='relu', input_shape=(self.state_size,)),
-            layers.Dense(24, activation='relu'),
+            layers.Dense(32, activation='relu', input_shape=(self.state_size,)),
+            layers.Dense(64, activation='relu'),
+            layers.Dense(32, activation='relu'),
             layers.Dense(self.action_size, activation='linear')
         ])
         model.compile(optimizer=tf.keras.optimizers.Adam(lr=self.learning_rate),
