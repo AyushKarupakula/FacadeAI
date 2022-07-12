@@ -19,12 +19,15 @@ class FacadeEnv(gym.Env):
         
         self.current_state = None
         self.current_energy_use = None
+        self.current_comfort_score = None
         self.step_count = 0
         self.max_steps = 24  # 24 hours in a day
 
     def reset(self):
         self.step_count = 0
         self.current_state = self._get_observation()
+        self.current_energy_use = None
+        self.current_comfort_score = None
         return self.current_state
 
     def step(self, action):
@@ -41,6 +44,7 @@ class FacadeEnv(gym.Env):
         if not check_physical_constraints(simulated_panels, max_rotation_speed=30, max_depth_change_speed=0.2):
             # If constraints are violated, penalize the agent
             reward = -1000
+            new_state = self.current_state
         else:
             # Get the new state and calculate reward
             new_state = self._get_observation(simulated_panels)
@@ -107,16 +111,53 @@ class FacadeEnv(gym.Env):
         self.revit_integration.analyze_results(simulation_results)
         
         new_energy_use = simulation_results['annual_energy_use']
+        new_comfort_score = self._calculate_comfort_score(state, simulation_results)
         
-        if self.current_energy_use is None:
-            reward = 0
+        if self.current_energy_use is None or self.current_comfort_score is None:
+            energy_reward = 0
+            comfort_reward = 0
         else:
-            # Reward is the negative change in energy use (we want to minimize energy use)
-            reward = self.current_energy_use - new_energy_use
+            # Energy reward is the negative change in energy use (we want to minimize energy use)
+            energy_reward = self.current_energy_use - new_energy_use
+            
+            # Comfort reward is the positive change in comfort score (we want to maximize comfort)
+            comfort_reward = new_comfort_score - self.current_comfort_score
         
         self.current_energy_use = new_energy_use
+        self.current_comfort_score = new_comfort_score
         
-        return reward
+        # Combine energy and comfort rewards (you can adjust the weights)
+        total_reward = 0.7 * energy_reward + 0.3 * comfort_reward
+        
+        return total_reward
+
+    def _calculate_comfort_score(self, state, simulation_results):
+        # This is a simplified comfort score calculation
+        # In a real implementation, you would use more sophisticated thermal comfort models
+        
+        indoor_temp = simulation_results.get('indoor_temperature', 22)  # Assume 22°C if not provided
+        indoor_humidity = simulation_results.get('indoor_humidity', 50)  # Assume 50% if not provided
+        
+        # Ideal comfort ranges
+        ideal_temp_range = (20, 26)
+        ideal_humidity_range = (30, 60)
+        
+        # Calculate temperature comfort (0 to 1)
+        if ideal_temp_range[0] <= indoor_temp <= ideal_temp_range[1]:
+            temp_comfort = 1
+        else:
+            temp_comfort = 1 - min(abs(indoor_temp - ideal_temp_range[0]), abs(indoor_temp - ideal_temp_range[1])) / 10
+        
+        # Calculate humidity comfort (0 to 1)
+        if ideal_humidity_range[0] <= indoor_humidity <= ideal_humidity_range[1]:
+            humidity_comfort = 1
+        else:
+            humidity_comfort = 1 - min(abs(indoor_humidity - ideal_humidity_range[0]), abs(indoor_humidity - ideal_humidity_range[1])) / 50
+        
+        # Combine temperature and humidity comfort (you can adjust the weights)
+        comfort_score = 0.6 * temp_comfort + 0.4 * humidity_comfort
+        
+        return comfort_score
 
     def _create_facade_geometry(self, state):
         # Extract facade parameters from state

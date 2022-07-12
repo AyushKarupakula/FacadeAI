@@ -17,6 +17,7 @@ class MainController:
         self.visualizer = FacadeVisualizer()
         self.facade_data = []
         self.energy_data = []
+        self.comfort_data = []
         
         # Initialize RL environment and agent
         self.env = FacadeEnv()
@@ -42,9 +43,10 @@ class MainController:
             # Make next_state the new current state for the next frame.
             state = next_state
             
-            # Store facade and energy data
+            # Store facade, energy, and comfort data
             self.store_facade_data(self.env.current_state, action)
             self.store_energy_data(self.env.current_energy_use)
+            self.store_comfort_data(self.env.current_comfort_score)
             
             if done:
                 break
@@ -75,18 +77,28 @@ class MainController:
             'humidity': self.facade_data[-1]['humidity']
         })
 
+    def store_comfort_data(self, comfort_score):
+        self.comfort_data.append({
+            'time': time.time(),
+            'comfort_score': comfort_score
+        })
+
     def update_visualizations(self):
         facade_df = pd.DataFrame(self.facade_data)
         energy_df = pd.DataFrame(self.energy_data)
+        comfort_df = pd.DataFrame(self.comfort_data)
         
         facade_df.to_csv('visualization/facade_data.csv', index=False)
         energy_df.to_csv('visualization/energy_data.csv', index=False)
+        comfort_df.to_csv('visualization/comfort_data.csv', index=False)
         
         self.visualizer.load_facade_data('visualization/facade_data.csv')
         self.visualizer.load_energy_data('visualization/energy_data.csv')
+        self.visualizer.load_comfort_data('visualization/comfort_data.csv')
         
         self.visualizer.plot_facade_behavior()
         self.visualizer.plot_energy_performance()
+        self.visualizer.plot_comfort_performance()
         self.visualizer.create_heatmap()
         self.visualizer.create_interactive_3d_plot()
         self.visualizer.create_animated_facade()
