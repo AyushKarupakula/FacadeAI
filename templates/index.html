@@ -21,6 +21,7 @@
                         <p>Energy Use: <span id="energy-use"></span> kWh</p>
                         <p>Temperature: <span id="temperature"></span> °C</p>
                         <p>Humidity: <span id="humidity"></span> %</p>
+                        <p>Comfort Score: <span id="comfort-score"></span></p>
                     </div>
                 </div>
             </div>
@@ -37,7 +38,7 @@
             </div>
         </div>
         <div class="row mt-4">
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <div class="card">
                     <div class="card-body">
                         <h5 class="card-title">Façade Behavior</h5>
@@ -45,11 +46,19 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <div class="card">
                     <div class="card-body">
                         <h5 class="card-title">Energy Performance</h5>
                         <div id="energy-plot"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Comfort Performance</h5>
+                        <div id="comfort-plot"></div>
                     </div>
                 </div>
             </div>
@@ -64,6 +73,7 @@
                 $('#energy-use').text(data.energy_use ? data.energy_use.toFixed(2) : 'N/A');
                 $('#temperature').text(data.temperature ? data.temperature.toFixed(1) : 'N/A');
                 $('#humidity').text(data.humidity ? data.humidity.toFixed(1) : 'N/A');
+                $('#comfort-score').text(data.comfort_score ? data.comfort_score.toFixed(2) : 'N/A');
             });
         }
 
@@ -116,12 +126,30 @@
             });
         }
 
+        function updateComfortPlot() {
+            $.getJSON('/api/comfort_data', function(data) {
+                var trace = {
+                    x: data.map(d => new Date(d.time * 1000)),
+                    y: data.map(d => d.comfort_score),
+                    mode: 'lines+markers',
+                    name: 'Comfort Score'
+                };
+                var layout = {
+                    title: 'Comfort Score Over Time',
+                    xaxis: {title: 'Time'},
+                    yaxis: {title: 'Comfort Score', range: [0, 1]}
+                };
+                Plotly.newPlot('comfort-plot', [trace], layout);
+            });
+        }
+
         // Update data every 5 seconds
         setInterval(function() {
             updateStatus();
             updateRLPerformance();
             updateFacadePlot();
             updateEnergyPlot();
+            updateComfortPlot();
         }, 5000);
 
         // Initial update
@@ -129,6 +157,7 @@
         updateRLPerformance();
         updateFacadePlot();
         updateEnergyPlot();
+        updateComfortPlot();
     </script>
 </body>
 </html>

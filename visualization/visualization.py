@@ -10,12 +10,16 @@ class FacadeVisualizer:
     def __init__(self):
         self.facade_data = None
         self.energy_data = None
+        self.comfort_data = None
 
     def load_facade_data(self, file_path):
         self.facade_data = pd.read_csv(file_path)
 
     def load_energy_data(self, file_path):
         self.energy_data = pd.read_csv(file_path)
+
+    def load_comfort_data(self, file_path):
+        self.comfort_data = pd.read_csv(file_path)
 
     def plot_facade_behavior(self):
         if self.facade_data is None:
@@ -46,20 +50,30 @@ class FacadeVisualizer:
             print("No energy data loaded. Please load data first.")
             return
 
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
+        fig, ax = plt.subplots(figsize=(12, 6))
 
-        ax1.plot(self.energy_data['time'], self.energy_data['energy_use'], label='Energy Use')
-        ax1.set_xlabel('Time')
-        ax1.set_ylabel('Energy Use (kWh)')
-        ax1.legend()
+        ax.plot(pd.to_datetime(self.energy_data['time'], unit='s'), self.energy_data['energy_use'], label='Energy Use')
+        ax.set_xlabel('Time')
+        ax.set_ylabel('Energy Use (kWh)')
+        ax.legend()
 
-        ax2.plot(self.energy_data['time'], self.energy_data['temperature'], label='Temperature')
-        ax2.plot(self.energy_data['time'], self.energy_data['humidity'], label='Humidity')
-        ax2.set_xlabel('Time')
-        ax2.set_ylabel('Value')
-        ax2.legend()
+        plt.title('Energy Performance Over Time')
+        plt.show()
 
-        plt.tight_layout()
+    def plot_comfort_performance(self):
+        if self.comfort_data is None:
+            print("No comfort data loaded. Please load data first.")
+            return
+
+        fig, ax = plt.subplots(figsize=(12, 6))
+
+        ax.plot(pd.to_datetime(self.comfort_data['time'], unit='s'), self.comfort_data['comfort_score'], label='Comfort Score')
+        ax.set_xlabel('Time')
+        ax.set_ylabel('Comfort Score')
+        ax.set_ylim(0, 1)
+        ax.legend()
+
+        plt.title('Comfort Performance Over Time')
         plt.show()
 
     def create_heatmap(self):
@@ -126,12 +140,14 @@ if __name__ == "__main__":
     visualizer = FacadeVisualizer()
     
     # Load sample data (you would replace these with your actual data files)
-    visualizer.load_facade_data('sample_facade_data.csv')
-    visualizer.load_energy_data('sample_energy_data.csv')
+    visualizer.load_facade_data('visualization/facade_data.csv')
+    visualizer.load_energy_data('visualization/energy_data.csv')
+    visualizer.load_comfort_data('visualization/comfort_data.csv')
     
     # Generate visualizations
     visualizer.plot_facade_behavior()
     visualizer.plot_energy_performance()
+    visualizer.plot_comfort_performance()
     visualizer.create_heatmap()
     visualizer.create_interactive_3d_plot()
     visualizer.create_animated_facade()

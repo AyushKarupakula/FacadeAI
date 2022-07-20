@@ -24,6 +24,10 @@ def get_facade_data():
 def get_energy_data():
     return jsonify(controller.energy_data)
 
+@app.route('/api/comfort_data')
+def get_comfort_data():
+    return jsonify(controller.comfort_data)
+
 @app.route('/api/current_status')
 def get_current_status():
     return jsonify({
@@ -32,6 +36,7 @@ def get_current_status():
         'energy_use': controller.energy_data[-1]['energy_use'] if controller.energy_data else None,
         'temperature': controller.energy_data[-1]['temperature'] if controller.energy_data else None,
         'humidity': controller.energy_data[-1]['humidity'] if controller.energy_data else None,
+        'comfort_score': controller.comfort_data[-1]['comfort_score'] if controller.comfort_data else None,
     })
 
 @app.route('/api/rl_performance')
