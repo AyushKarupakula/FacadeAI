@@ -2,7 +2,7 @@ import time
 import threading
 from data_acquisition.fetch_data import fetch_weather_data, load_config
 from ai_control_system.facade_env import FacadeEnv
-from ai_control_system.dqn_agent import DQNAgent
+from ai_control_system.ppo_agent import PPOAgent
 from models.components.facade_controller import FacadeController
 from revit_integration.revit_integration import RevitIntegration
 from visualization.visualization import FacadeVisualizer
@@ -21,26 +21,25 @@ class MainController:
         
         # Initialize RL environment and agent
         self.env = FacadeEnv()
-        self.agent = DQNAgent(state_size=self.env.observation_space.shape[0],
+        self.agent = PPOAgent(state_size=self.env.observation_space.shape[0],
                               action_size=self.env.action_space.shape[0])
-        self.agent.action_space = self.env.action_space  # Set the action space for the agent
 
     def run_simulation_cycle(self):
         state = self.env.reset()
-        state = np.reshape(state, [1, self.env.observation_space.shape[0]])
+        total_reward = 0
+        states, actions, rewards, next_states, dones = [], [], [], [], []
         
         for time_step in range(self.env.max_steps):
-            # Get action from DQN agent
-            action = self.agent.act(state)
-            
-            # Take action in environment
+            action = self.agent.get_action(state)
             next_state, reward, done, _ = self.env.step(action)
-            next_state = np.reshape(next_state, [1, self.env.observation_space.shape[0]])
             
-            # Remember the previous state, action, reward, and done
-            self.agent.remember(state, action, reward, next_state, done)
+            states.append(state)
+            actions.append(action)
+            rewards.append(reward)
+            next_states.append(next_state)
+            dones.append(done)
             
-            # Make next_state the new current state for the next frame.
+            total_reward += reward
             state = next_state
             
             # Store facade, energy, and comfort data
@@ -51,9 +50,10 @@ class MainController:
             if done:
                 break
         
-        # Train the agent with experiences in memory
-        if len(self.agent.memory) > 32:
-            self.agent.replay(32)
+        # Train the PPO agent
+        loss = self.agent.train(states, actions, rewards, next_states, dones)
+        
+        print(f"Episode finished. Total reward: {total_reward}, Loss: {loss}")
 
     def store_facade_data(self, state, action):
         self.facade_data.append({
