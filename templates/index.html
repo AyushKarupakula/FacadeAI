@@ -28,11 +28,15 @@
             <div class="col-md-6">
                 <div class="card">
                     <div class="card-body">
-                        <h5 class="card-title">RL Agent Performance</h5>
+                        <h5 class="card-title">PPO Agent Performance</h5>
+                        <p>Learning Rate: <span id="learning-rate"></span></p>
+                        <p>Gamma: <span id="gamma"></span></p>
                         <p>Epsilon: <span id="epsilon"></span></p>
-                        <p>Memory Size: <span id="memory-size"></span></p>
-                        <p>Last Reward: <span id="last-reward"></span></p>
+                        <p>Value Coefficient: <span id="value-coef"></span></p>
+                        <p>Entropy Coefficient: <span id="entropy-coef"></span></p>
+                        <p>Last Total Loss: <span id="last-total-loss"></span></p>
                         <p>Total Steps: <span id="total-steps"></span></p>
+                        <p>Latest Action: <span id="latest-action"></span></p>
                     </div>
                 </div>
             </div>
@@ -79,10 +83,14 @@
 
         function updateRLPerformance() {
             $.getJSON('/api/rl_performance', function(data) {
-                $('#epsilon').text(data.epsilon.toFixed(4));
-                $('#memory-size').text(data.memory_size);
-                $('#last-reward').text(data.last_reward ? data.last_reward.toFixed(2) : 'N/A');
+                $('#learning-rate').text(data.learning_rate.toFixed(6));
+                $('#gamma').text(data.gamma.toFixed(2));
+                $('#epsilon').text(data.epsilon.toFixed(2));
+                $('#value-coef').text(data.value_coef.toFixed(2));
+                $('#entropy-coef').text(data.entropy_coef.toFixed(2));
+                $('#last-total-loss').text(data.last_total_loss ? data.last_total_loss.toFixed(4) : 'N/A');
                 $('#total-steps').text(data.total_steps);
+                $('#latest-action').text(JSON.stringify(data.latest_action.map(x => x.toFixed(2))));
             });
         }
 

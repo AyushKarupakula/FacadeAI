@@ -2,6 +2,7 @@ from flask import Flask, render_template, jsonify
 from main_controller import MainController
 import threading
 import time
+import numpy as np
 
 app = Flask(__name__)
 
@@ -41,11 +42,22 @@ def get_current_status():
 
 @app.route('/api/rl_performance')
 def get_rl_performance():
+    # Get the latest action from the PPO agent
+    state = controller.env.current_state
+    if state is not None:
+        action = controller.agent.get_action(state)
+    else:
+        action = np.zeros(controller.agent.action_size)
+
     return jsonify({
+        'learning_rate': controller.agent.learning_rate,
+        'gamma': controller.agent.gamma,
         'epsilon': controller.agent.epsilon,
-        'memory_size': len(controller.agent.memory),
-        'last_reward': controller.env.current_energy_use,
-        'total_steps': controller.env.step_count
+        'value_coef': controller.agent.value_coef,
+        'entropy_coef': controller.agent.entropy_coef,
+        'last_total_loss': controller.last_total_loss if hasattr(controller, 'last_total_loss') else None,
+        'total_steps': controller.env.step_count,
+        'latest_action': action.tolist()
     })
 
 if __name__ == '__main__':
