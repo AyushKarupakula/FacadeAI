@@ -5,6 +5,7 @@ import websocket
 import json
 import threading
 import time
+from simulation.physics_simulation import run_physics_simulation, check_physical_constraints
 
 class FacadeController:
     def __init__(self):
@@ -15,6 +16,7 @@ class FacadeController:
             "adjustment_3": 0.0
         }
         self.connect_to_server()
+        self.wind_force = 0  # Initialize wind force
 
     def connect_to_server(self):
         def on_message(ws, message):
@@ -47,9 +49,6 @@ class FacadeController:
         self.ws.send(json.dumps({"type": "request_adjustments"}))
 
     def update_facade(self, base_surface):
-        # This is a simplified example of how we might update the façade
-        # In a real scenario, this would be much more complex and tailored to your specific design
-
         # Adjustment 1: Control the number of panels
         panel_count = int(10 + self.adjustments["adjustment_1"] * 10)  # Range: 10-20 panels
         
@@ -66,12 +65,30 @@ class FacadeController:
             u = i * u_step
             panel_surface = rs.ExtrudeSurface(base_surface, rs.VectorScale(rs.SurfaceNormal(base_surface, [u, 0.5]), panel_depth))
             panel_surface = rs.RotateObject(panel_surface, rs.SurfaceDomain(base_surface, 0), rotation_angle)
-            panels.append(panel_surface)
+            panels.append({
+                'time': time.time(),
+                'rotation': rotation_angle,
+                'depth': panel_depth,
+                'surface': panel_surface
+            })
 
-        return panels
+        # Run physics simulation
+        simulated_panels = run_physics_simulation(panels, self.wind_force)
+
+        # Check physical constraints
+        if check_physical_constraints(simulated_panels, max_rotation_speed=30, max_depth_change_speed=0.2):
+            print("Facade adjustments are physically feasible.")
+            return [panel['surface'] for panel in simulated_panels]
+        else:
+            print("Warning: Facade adjustments violate physical constraints. Using previous configuration.")
+            return [panel['surface'] for panel in panels]  # Return original panels if constraints are violated
+
+    def update_wind_force(self, wind_speed):
+        # Simple wind force calculation (can be made more sophisticated)
+        self.wind_force = 0.5 * 1.225 * (wind_speed ** 2)  # 1.225 kg/m^3 is air density at sea level
 
 # This function will be called by Grasshopper
-def update_facade_model(base_surface):
+def update_facade_model(base_surface, wind_speed):
     global facade_controller
     if 'facade_controller' not in globals():
         facade_controller = FacadeController()
@@ -80,6 +97,7 @@ def update_facade_model(base_surface):
     if int(time.time()) % 300 == 0:
         facade_controller.request_adjustments()
     
+    facade_controller.update_wind_force(wind_speed)
     return facade_controller.update_facade(base_surface)
 
 # For testing outside of Grasshopper
@@ -87,7 +105,10 @@ if __name__ == "__main__":
     # Simulate a base surface
     base_surface = rs.AddPlaneSurface(rs.WorldXYPlane(), 10, 5)
     
+    # Simulate wind speed (m/s)
+    wind_speed = 5
+    
     # Update facade
-    panels = update_facade_model(base_surface)
+    panels = update_facade_model(base_surface, wind_speed)
     
     print(f"Created {len(panels)} panels")
